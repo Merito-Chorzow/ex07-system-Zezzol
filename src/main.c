@@ -24,7 +24,7 @@ void sim_step(bool run_pid) {
 int main() {
     printf("=== Test A: Scenariusz Funkcjonalny ===\n");
     ctrl_init(&ctrl);
-    ctrl_config(&ctrl, 2.0f, 0.1f, 0.0f, 10.0f); // Kp=2, Ki=0.1
+    ctrl_config(&ctrl, 2.0f, 0.1f, 0.0f, 10.0f); // Kp=2, Ki=0.1, Lim=10
     plant_init(&plant, 0.1f);
 
     // 1. OPEN MODE
@@ -34,7 +34,7 @@ int main() {
     for(int i=0; i<10; i++) sim_step(true);
     printf("  [OPEN] y=%.2f u=%.2f\n", plant.y, ctrl.u);
 
-    // 2. CLOSED MODE
+    // 2. CLOSED MODE (Bumpless)
     printf("[CMD] Tryb CLOSED, Setpoint=8.0 (Bumpless test)\n");
     ctrl_set_mode(&ctrl, STATE_RUN_CLOSED);
     ctrl_set_point(&ctrl, 8.0f);
@@ -47,10 +47,36 @@ int main() {
     sim_step(true);
     printf("  [IDLE] u=%.2f\n", ctrl.u);
 
+
+    printf("\n=== Test B: Scenariusz Jakościowy (Skok jednostkowy) ===\n");
+    ctrl_init(&ctrl);
+    ctrl_config(&ctrl, 2.0f, 0.1f, 0.0f, 100.0f); // Kp=2, Ki=0.1, szerszy limit
+    plant_init(&plant, 0.1f);
+    
+    printf("[CMD] Tryb CLOSED, Setpoint=10.0 (Start 0 -> 10)\n");
+    ctrl_set_mode(&ctrl, STATE_RUN_CLOSED);
+    ctrl_set_point(&ctrl, 10.0f);
+    
+    printf("  k |   y   |   u  \n");
+    printf("----|-------|------\n");
+    for(int k=0; k<=50; k++) {
+        if(k % 5 == 0) {
+            printf(" %2d | %5.2f | %5.2f\n", k, plant.y, ctrl.u);
+        }
+        sim_step(true);
+    }
+    printf("  [Result] SSE = %.3f (Setpoint - y)\n", 10.0f - plant.y);
+
+
+   
     printf("\n=== Test C: Awaria (Watchdog) ===\n");
+    ctrl_init(&ctrl);
+    plant_init(&plant, 0.1f);
+    
     ctrl_set_mode(&ctrl, STATE_RUN_CLOSED);
     ctrl_set_point(&ctrl, 5.0f);
-    sim_step(true); // Normalny cykl
+    sim_step(true); 
+    
     printf("[Stan] %s, u=%.2f\n", str_state(ctrl.state), ctrl.u);
     
     printf("[SIM] Blokada funkcji tick()...\n");
